@@ -4,146 +4,166 @@
 
 /* Program that calculates magnetic induction vector fields from individual conductors
 and adds them together to create a final magnetic induction vector field and outputs it to a file.
-Version: 1.0b
-Date: 20/06/2021
+Version: 1.1
+Date: 14/08/2021
 */
 
-struct magnetic_induction_point {
-    double x_pos, y_pos, b, b_x, b_y;
+struct magneticInductionPoint {
+    double xPos, yPos, b, b_x, b_y;
 };
 
-struct current_conductor {
-    double x_pos, y_pos, current_intensity;
+struct currentConductor {
+    double xPos, yPos, currentIntensity;
 };
 
 double m_0 = 4*M_PI*pow(10, -7);
 
-struct magnetic_induction_point calculate_induction_point(double m_r, struct magnetic_induction_point point, struct current_conductor conductor) {
-    double distance_x, distance_y, distance;
-    distance_x = fabs(point.x_pos-conductor.x_pos);
-    distance_y = fabs(point.y_pos-conductor.y_pos);
-    distance = sqrt(distance_x*distance_x+distance_y*distance_y);
+struct magneticInductionPoint calculateInductionPoint(double m_r, struct magneticInductionPoint point, struct currentConductor conductor) {
+    double distancb_x, distancb_y, distance;
+    distancb_x = fabs(point.xPos-conductor.xPos);
+    distancb_y = fabs(point.yPos-conductor.yPos);
+    distance = sqrt(distancb_x*distancb_x+distancb_y*distancb_y);
     if(distance <= 0.00001) {
         point.b = 0;
         point.b_x = 0;
         point.b_y = 0;
     return point;
     }
-    double alpha = atan(distance_y/distance_x);
-    point.b = m_0*m_r*conductor.current_intensity/(2*M_PI*distance);
-    if(point.x_pos==conductor.x_pos && point.y_pos>conductor.y_pos) {
+    double alpha = atan(distancb_y/distancb_x);
+    point.b = m_0*m_r*conductor.currentIntensity/(2*M_PI*distance);
+    if(point.xPos==conductor.xPos && point.yPos>conductor.yPos) {
         point.b_x = -point.b;
         point.b_y = 0;
         return point;
     }
-    else if(point.x_pos==conductor.x_pos && point.y_pos<conductor.y_pos) {
+    else if(point.xPos==conductor.xPos && point.yPos<conductor.yPos) {
         point.b_x = point.b;
         point.b_y = 0;
         return point;
     }
-    else if(point.x_pos<conductor.x_pos && point.y_pos==conductor.y_pos) {
+    else if(point.xPos<conductor.xPos && point.yPos==conductor.yPos) {
         point.b_x = 0;
         point.b_y = -point.b;
         return point;
     }
-    else if(point.x_pos>conductor.x_pos && point.y_pos==conductor.y_pos) {
+    else if(point.xPos>conductor.xPos && point.yPos==conductor.yPos) {
         point.b_x = 0;
         point.b_y = point.b;
         return point;
     }
     point.b_x = point.b*sin(alpha);
     point.b_y = point.b*cos(alpha);
-    if(point.x_pos<conductor.x_pos && point.y_pos>conductor.y_pos) {
+    if(point.xPos<conductor.xPos && point.yPos>conductor.yPos) {
         point.b_x *= -1;
         point.b_y *= -1;
     }
-    else if(point.x_pos<conductor.x_pos && point.y_pos<conductor.y_pos) {
+    else if(point.xPos<conductor.xPos && point.yPos<conductor.yPos) {
         point.b_y *= -1;
     }
-    else if(point.x_pos>conductor.x_pos && point.y_pos>conductor.y_pos) {
+    else if(point.xPos>conductor.xPos && point.yPos>conductor.yPos) {
         point.b_x *= -1;
     }
     return point; //TODO: Make this be less of a disaster in optimization.
 }
 
-struct magnetic_induction_point add_magnetic_induction(struct magnetic_induction_point point_1, struct magnetic_induction_point point_2) {
-    struct magnetic_induction_point result;
-    result.x_pos = point_1.x_pos;
-    result.y_pos = point_1.y_pos;
-    result.b_x = point_1.b_x+point_2.b_x;
-    result.b_y = point_1.b_y+point_2.b_y;
+struct magneticInductionPoint addMagneticInduction(struct magneticInductionPoint point1, struct magneticInductionPoint point2) {
+    struct magneticInductionPoint result;
+    result.xPos = point1.xPos;
+    result.yPos = point1.yPos;
+    result.b_x = point1.b_x+point2.b_x;
+    result.b_y = point1.b_y+point2.b_y;
     result.b = sqrt(pow(result.b_x, 2)+pow(result.b_y, 2));
     return result;
 };
 
 int main(int argc, char** argv) {
-    int size;
+    int size, n;
     double step, m_r;
-    int n;
-    FILE *f_in, *f_out;
-    if(!(f_in = fopen(argv[1], "rb"))) {
-        perror(argv[1]);
+    FILE *in_file, *out_file;
+    if(!strcmp(argv[1], "-h")) {
+        printf("You can view help at the GitHub page of this program:\n");
+        printf("https://github.com/TheNumber5/magnetic-induction-2d\n");
+        printf("Version: v1.1\nDate: 14/08/2021");
         return 0;
     }
-    f_in = fopen(argv[1], "rb");
-    f_out = fopen(argv[2], "wb");
-    fscanf(f_in, "%i %lf %lf %i", &size, &step, &m_r, &n);
-    double current_position_x = -1*size*step, current_position_y = size*step;
-    struct magnetic_induction_point field[size*2+1][size*2+1][n];
-    struct magnetic_induction_point result_field[size*2+1][size*2+1];
-    for(int k=0; k<n; k++){
+    if(!(in_file = fopen(argv[2], "rb"))) {
+       perror(argv[2]);
+       return 0;
+    }
+    in_file = fopen(argv[2], "rb");
+    out_file = fopen(argv[3], "wb");
+    fscanf(in_file, "%i %lf %lf %i", &size, &step, &m_r, &n);
+    double currentPositionX = -1*size*step, currentPositionY = size*step;
+    struct magneticInductionPoint magneticField1[size*2+1][size*2+1], magneticField2[size*2+1][size*2+1];
+    struct magneticInductionPoint auxField[size*2+1][size*2+1];
+    struct currentConductor conductors[n];
+    for(int i=0; i<n; i++) {
+        fscanf(in_file, "%lf %lf %lf", &conductors[i].xPos, &conductors[i].yPos, &conductors[i].currentIntensity);
+    }
     for(int i=0; i<size*2+1; i++) {
         for(int j=0; j<size*2+1; j++) {
-            field[j][i][k].x_pos = current_position_x;
-            field[j][i][k].y_pos = current_position_y;
-            current_position_x += step;
+            auxField[j][i].xPos = magneticField2[j][i].xPos = magneticField1[j][i].xPos = currentPositionX;
+            auxField[j][i].yPos = magneticField2[j][i].yPos = magneticField1[j][i].yPos = currentPositionY;
+            currentPositionX += step;
         }
-        current_position_x = -1*size*step;
-        current_position_y -= step;
-    }
-    current_position_y = size*step;
-    }
-    struct current_conductor conductors[n];
-    for(int i=0; i<n; i++) {
-        fscanf(f_in, "%lf %lf %lf", &conductors[i].x_pos, &conductors[i].y_pos, &conductors[i].current_intensity);
+        currentPositionX = -1*size*step;
+        currentPositionY -= step;
     }
     if(n==1) {
-    for(int i=0; i<size*2+1; i++) {
-    for(int j=0; j<size*2+1; j++) {
-        result_field[j][i] = calculate_induction_point(m_r, field[j][i][0], conductors[0]);
-        result_field[j][i].x_pos = field[j][i][0].x_pos;
-        result_field[j][i].y_pos = field[j][i][0].y_pos;
-    }
+        for(int i=0; i<size*2+1; i++) {
+        for(int j=0; j<size*2+1; j++) {
+            auxField[j][i] = calculateInductionPoint(m_r, auxField[j][i], conductors[0]);
+        }
     }
     }
     else {
-    for(int k=0; k<n; k++) {
     for(int i=0; i<size*2+1; i++) {
         for(int j=0; j<size*2+1; j++) {
-            field[j][i][k] = calculate_induction_point(m_r, field[j][i][k], conductors[k]);
+            magneticField1[j][i] = calculateInductionPoint(m_r, magneticField1[j][i], conductors[0]);
+            magneticField2[j][i] = calculateInductionPoint(m_r, magneticField2[j][i], conductors[1]);
+        }
+    }
+    for(int q=2; q<n+1; q++) {
+    for(int i=0; i<size*2+1; i++) {
+        for(int j=0; j<size*2+1; j++) {
+            auxField[j][i] = addMagneticInduction(magneticField1[j][i], magneticField2[j][i]);
+        }
+    }
+    for(int i=0; i<size*2+1; i++) {
+        for(int j=0; j<size*2+1; j++) {
+            magneticField1[j][i].b = auxField[j][i].b;
+            magneticField1[j][i].b_x = auxField[j][i].b_x;
+            magneticField1[j][i].b_y = auxField[j][i].b_y;
+        }
+    }
+    for(int i=0; i<size*2+1; i++) {
+        for(int j=0; j<size*2+1; j++) {
+            magneticField2[j][i] = calculateInductionPoint(m_r, magneticField2[j][i], conductors[q]);
         }
     }
     }
+    }
+    if(!strcmp(argv[1], "-g")) {
     for(int i=0; i<size*2+1; i++) {
-        for(int j=0; j<size*2+1; j++) {
-        result_field[j][i] = add_magnetic_induction(field[j][i][0], field[j][i][1]);
+    for(int j=0; j<size*2+1; j++) {
+        fprintf(out_file, "%0.2lf %0.2lf %0.12lf\n", auxField[j][i].xPos, auxField[j][i].yPos, auxField[j][i].b);
     }
     }
-    for(int k=2; k<n; k++) {
+    printf("Magnetic field gradient written to %s successfully.", argv[3]);
+    }
+    else if(!strcmp(argv[1], "-vf")) {
     for(int i=0; i<size*2+1; i++) {
-        for(int j=0; j<size*2+1; j++) {
-        result_field[j][i] = add_magnetic_induction(result_field[j][i], field[j][i][k]);
+    for(int j=0; j<size*2+1; j++) {
+        fprintf(out_file, "%0.2lf %0.2lf %0.12lf %0.12lf\n", auxField[j][i].xPos, auxField[j][i].yPos, auxField[j][i].b_x, auxField[j][i].b_y);
     }
     }
+    printf("Magnetic field written to %s successfully.", argv[3]);
     }
+    else {
+        printf("Unknown command.");
     }
-    for(int i=0; i<size*2+1; i++) {
-        for(int j=0; j<size*2+1; j++) {
-            fprintf(f_out, "%0.2lf %0.2lf %0.10lf %0.10lf\n", result_field[j][i].x_pos, result_field[j][i].y_pos, result_field[j][i].b_x, result_field[j][i].b_y);
-        }
-    }
-    printf("Vector field written to %s successfully", argv[2]);
-    fclose(f_in);
-    fclose(f_out);
-    return 0;
+    fclose(in_file);
+    fclose(out_file);
+return 0;
 }
+
